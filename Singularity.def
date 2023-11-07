@@ -9,6 +9,8 @@ maintainer="Konstantin Schürholt <konstantin.schuerholt@unisg.ch>"
 
 su -  root # USER root
 
+DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+
 apt-get update
 
 # FFCV requires opencv, which is not available in the pytorch docker image.
