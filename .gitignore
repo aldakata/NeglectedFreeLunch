@@ -2,3 +2,10 @@
 imagenet_ab_v1_0/
 imagenet_ab_v1_0*
 imagenet1000_clsidx_to_labels.txt
+*xml
+ffcv_sbx/
+*.sif
+*.txt
+*.sh
+*.def
+*.tar.gz
