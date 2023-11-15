@@ -49,7 +49,7 @@ def get_imagenet_selected_point_info(image_path, xml_root):
     fragments = image_path.split("/")
     file_name_no_extension = fragments[-1].split('.')[0]
     image_class = file_name_no_extension.split('_')[0]
-    source_xml = os.path.join(xml_root, image_class,file_name_no_extension + '.xml')
+    source_xml = os.path.join(xml_root, image_class,'._'+file_name_no_extension + '.xml')
     if not os.path.isfile(source_xml):
         return None
 
@@ -168,7 +168,7 @@ def build_args():
     main_parser.add_argument(
         "--ab_path",
         type=str,
-        default="/home/stud132/researchproject/NeglectedFreeLunch/imagenet_ab_v1_0/train_xml",
+        default="/home/stud132/researchproject/NeglectedFreeLunch/train_xml",
         help="Path to the Annotation Byproducts folder."
     )
     main_parser.add_argument(

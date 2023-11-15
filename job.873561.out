@@ -1,7 +1,0 @@
-Start
-Created transform
-samples[0] ('/common/datasets/ImageNet_ILSVRC2012/train/n01440764/n01440764_10026.JPEG', 0)
-xml of sample[0] /home/stud132/researchproject/NeglectedFreeLunch/train_xml/n01440764/._n01440764_10026.xml
-Created dataset
-Created dataloader
-DONE!

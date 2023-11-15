@@ -37,6 +37,6 @@
 #c) Execute your file.
 ####
 
-singularity exec ffcv.sif python -m pip install timm
+singularity exec ffcv.sif python download_ab.py  
 
 echo DONE!
