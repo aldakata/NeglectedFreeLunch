@@ -83,14 +83,14 @@ def compute_cls(original_label, LUAB_points, loc_info, class_gt=False, num_class
     weight = np.array(1, dtype=np.float32)
     if LUAB_points is not None:
         is_fg, fg_point = check_in_point(loc_info=loc_info, gt_points=LUAB_points)
-
+                      
     if not is_fg or LUAB_points is None:
         weight = np.array(0, dtype=np.float32)
         fg_point = np.array([-1, -1], dtype=np.float32)
 
     return original_label, weight, fg_point
 
-
+                    
 class RRCFlipReturnParams(timm.data.transforms.RandomResizedCropAndInterpolation):
     def __call__(self, img):
         """
