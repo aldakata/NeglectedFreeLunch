@@ -9,3 +9,4 @@ ffcv_sbx/
 *.sh
 *.def
 *.tar.gz
+job*
