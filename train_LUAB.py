@@ -38,8 +38,24 @@ def build_args():
         default="/home/stud132/researchproject/NeglectedFreeLunch/imagenet1000_clsidx_to_labels.txt",
         help="Path to the Annotation Byproducts clsidx to labels .txt.",
     )
-
+    main_parser.add_argument(
+        "--nr_epochs",
+        type=int,
+        default=100,
+    )
+    main_parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=64,
+    )
     return main_parser.parse_args()
+
+
+def create_model():
+    model = ResNet18(num_classes=args.num_class)
+    model = model.cuda()
+    return model
+
 
 if __name__ == "__main__":
     args = build_args()
@@ -47,11 +63,10 @@ if __name__ == "__main__":
     print("Start")
     root_train = args.img_path
     xml_path = args.ab_path
-
+    nr_epochs = args.nr_epochs
+    batch_size = args.batch_size
     input_size = 224
-    batch_size = 8
     num_workers = 4
-
 
     loader = ImageNetwithLUAB_dataloader(
         root=root_train,
@@ -62,8 +77,18 @@ if __name__ == "__main__":
         num_workers=num_workers,
         loss_weight=1,
     ).run()
-
-def create_model():
-    model = ResNet18(num_classes=args.num_class)
-    model = model.cuda()
-    return model
+    print(
+        iter(loader.next()),
+        """It should be sample, (
+            target,
+            weight,
+            fg_point,
+            np.array([loc_info["w"], loc_info["h"]], dtype=np.float32),
+        )""",
+    )
+    # model = create_model()
+    # L_image = torch.nn.CrossEntropyLoss()
+    # L_ab = torch.nn.SmoothL1Loss()
+    # for epoch in range(nr_epochs):
+    #     total_loss = 0
+    #     for batch_idx, (batch) in enumerate(loader):
