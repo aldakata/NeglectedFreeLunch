@@ -1,19 +1,7 @@
-import numpy as np
-import cv2
-import json
-import random
-
 import torch
-import torchvision.transforms as transforms
-import timm
-from timm.data import create_transform
-import xml.etree.ElementTree as ET
-from matplotlib import pyplot as plt
-import matplotlib
-import sys
-from PreResNet import ResNet18
+from ResNet import resnet18
 
-from imagenet_dataloader import ImageNetwithLUAB_datalaoder, ImageNetwithLUAB_dataloader
+from imagenet_dataloader import ImageNetwithLUAB_dataloader
 
 import argparse
 
@@ -23,7 +11,7 @@ def build_args():
         "--img_path",
         type=str,
         help="Path to the ImageNet .jpg folder.",
-        default="/common/datasets/ImageNet_ILSVRC2012/train",
+        default="/common/datasets/ImageNet_ILSVRC2012/",
     )
     main_parser.add_argument(
         "--ab_path",
@@ -45,49 +33,71 @@ def build_args():
     main_parser.add_argument(
         "--batch_size",
         type=int,
-        default=64,
+        default=256,
+    )    
+    main_parser.add_argument(
+        "--lambda_",
+        type=float,
+        default=0.5,
+    )
+    main_parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-2,
+    )
+    main_parser.add_argument(
+        "--num_class",
+        type=int,
+        default=1000,
     )
     return main_parser.parse_args()
 
-
-def create_model():
-    model = ResNet18(num_classes=args.num_class)
-    model = model.cuda()
-    return model
 
 
 if __name__ == "__main__":
     args = build_args()
 
-    print("Start")
-    root_train = args.img_path
+    root_train = f'{args.img_path}train'
     xml_path = args.ab_path
     nr_epochs = args.nr_epochs
     batch_size = args.batch_size
     input_size = 224
     num_workers = 4
+    num_class=args.num_class
 
     loader = ImageNetwithLUAB_dataloader(
-        root=root_train,
-        xml_root=xml_path,
-        num_classes=1000,
+        root_train=root_train,
+        xml_path=xml_path,
+        num_classes=num_class,
         input_size=input_size,
         batch_size=batch_size,
         num_workers=num_workers,
         loss_weight=1,
     ).run()
-    print(
-        iter(loader.next()),
-        """It should be sample, (
-            target,
-            weight,
-            fg_point,
-            np.array([loc_info["w"], loc_info["h"]], dtype=np.float32),
-        )""",
-    )
-    # model = create_model()
-    # L_image = torch.nn.CrossEntropyLoss()
-    # L_ab = torch.nn.SmoothL1Loss()
-    # for epoch in range(nr_epochs):
-    #     total_loss = 0
-    #     for batch_idx, (batch) in enumerate(loader):
+
+    (inputs, ab_information) = next(iter(loader))
+    print('Dataloader sanity check, this should be (batch_size, (2))', ab_information[-1].shape)
+    model = resnet18()
+    model.cuda()
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
+
+    L_image = torch.nn.CrossEntropyLoss()
+    L_ab = torch.nn.SmoothL1Loss()
+    # Are the batches shuffled here?
+    print('---Training---')
+    for epoch in range(nr_epochs):
+        total_loss = 0
+        for batch_idx, (inputs, ab_information) in enumerate(loader):
+            targets, weight, fg_point, loc_info = ab_information
+            inputs, targets = inputs.cuda(), targets.cuda()
+            optimizer.zero_grad()
+            visual_outputs, ab_outputs = model(inputs)
+            loss = L_image(visual_outputs, targets)
+            if loc_info is not None:
+                loc_info = loc_info.cuda()
+                loss += args.lambda_ * L_ab(ab_outputs, loc_info)
+            
+            loss.backward()
+            optimizer.step()
+            total_loss+=loss
+        print(f"[Training] - E{epoch} - Loss {total_loss}")
