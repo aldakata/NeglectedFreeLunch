@@ -4,7 +4,7 @@
 #a) Define slurm job parameters
 ####
 
-#SBATCH --job-name=TrainImagenet
+#SBATCH --job-name=TutorialJob
 
 #resources:
 
@@ -14,15 +14,17 @@
 #SBATCH --partition=day
 # the slurm partition the job is queued to.
 
-#SBATCH --mem-per-cpu=12G
+#SBATCH --mem-per-cpu=4G
 # the job will need 12GB of memory equally distributed on 4 cpus.  (251GB are available in total on one node)
 
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:0
 #the job can use and see 1 GPUs (4 GPUs are available in total on one node)
 
 #SBATCH --time=23:59:59
 # the maximum time the scripts needs to run
 # "minutes:seconds", "hours:minutes:seconds", "days-hours", "days-hours:minutes" and "days-hours:minutes:seconds"
+
+
 
 #SBATCH --error=job.%J.err
 # write the error output to job.*jobID*.err
@@ -30,10 +32,12 @@
 #SBATCH --output=job.%J.out
 # write the standard output to job.*jobID*.out
 
+
 ####
 #c) Execute your file.
 ####
 
-singularity exec --nv ffcv.sif python train_LUAB.py
-
+# singularity exec ffcv.sif python download_ab.py  
+# rm -rf train_xml/
+tar -xzf imagenet_ab_v1_0_albert.tar.gz
 echo DONE!

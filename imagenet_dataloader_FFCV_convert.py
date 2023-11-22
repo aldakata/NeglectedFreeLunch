@@ -16,17 +16,17 @@ import sys
 import torchvision.transforms.functional as F
 
 
-from imagenet_dataloader import ImageNetwithLUAB, ImageNetwithLUAB_dataloader
+from imagenet_dataloader import ImageNetwithLUAB, ImageNetwithLUAB_dataloader, RRCFlipReturnParams
 import os
 
 
 from ffcv.writer import DatasetWriter
-from ffcv.fields import RGBImageField, IntField, JSONField
+from ffcv.fields import RGBImageField, IntField, FloatField, NDArrayField
 
-BETON_PATH = "/output/path/for/converted/ds.beton"  # TODO
+BETON_PATH = "imagenet_ab.beton"
 
-root_train = "/home/tmp/dataset/ILSVRC2015/"  # TODO
-xml_path = os.path.join(root_train, "train")
+root_train = "/common/datasets/ImageNet_ILSVRC2012/"
+xml_path = "/home/stud132/researchproject/NeglectedFreeLunch/imagenet_ab_v1_0/train_xml"
 
 input_size = 224
 batch_size = 8
@@ -58,57 +58,67 @@ dataset_train = ImageNetwithLUAB(
 )
 write_path = BETON_PATH
 
+print('Dataset read, setting up writter')
 # Pass a type for each data field
 writer = DatasetWriter(
     write_path,
     {
         # Tune options to optimize dataset size, throughput at train-time
-        "image": RGBImageField(max_resolution=256),
+        "image": RGBImageField(write_mode='proportion',
+                               max_resolution=400,
+                               compress_probability=0.1,
+                               jpeg_quality=90),
         "label": IntField(),
-        "byproduct_annotations": JSONField(),
+        "weight": FloatField(),
+        "fg_point_w": FloatField(),
+        "fg_point_h": FloatField(),
+        "loc_info_w": FloatField(),
+        "loc_info_h": FloatField()
     },
 )
+# sample, (target, weight, fg_point, loc_info)
 
+print('Green light, time to write the dataset')
 # Write dataset
 writer.from_indexed_dataset(dataset_train)
 # END
 
-from ffcv.loader import Loader, OrderOption
-from ffcv.fields.decoders import NDArrayDecoder, FloatDecoder, JSON
+# from ffcv.loader import Loader, OrderOption
+# from ffcv.fields.decoders import NDArrayDecoder, FloatDecoder, JSON
 
-# Deciding ORDERING.
-# Random is most expensive, but most random.
-# Quasi_random is a trade off in between.
-# Sequential is most efficient but not random.
+# # Deciding ORDERING.
+# # Random is most expensive, but most random.
+# # Quasi_random is a trade off in between.
+# # Sequential is most efficient but not random.
 
-from ffcv.loader import OrderOption
+# from ffcv.loader import OrderOption
 
-# Truly random shuffling (shuffle=True in PyTorch)
-ORDERING = OrderOption.RANDOM
-# Unshuffled (i.e., served in the order the dataset was written)
-ORDERING = OrderOption.SEQUENTIAL
-# Memory-efficient but not truly random loading
-# Speeds up loading over RANDOM when the whole dataset does not fit in RAM!
-ORDERING = OrderOption.QUASI_RANDOM
+# # Truly random shuffling (shuffle=True in PyTorch)
+# ORDERING = OrderOption.RANDOM
+# # Unshuffled (i.e., served in the order the dataset was written)
+# ORDERING = OrderOption.SEQUENTIAL
+# # Memory-efficient but not truly random loading
+# # Speeds up loading over RANDOM when the whole dataset does not fit in RAM!
+# ORDERING = OrderOption.QUASI_RANDOM
 
-# Deciding PIPEPLINE.
-# A key-value dictionary where the key matches the one used in writing the dataset,
-# and the value is a sequence of operations to perform on top. JIT-able
-# transformations will be JITted for fastest experience, and such. Our example could be
-PIPELINES = {
-    "covariate": [
-        NDArrayDecoder(),
-        ToTensor(),
-        transforms.Compose([transform_2nd, transform_final]),
-    ],  # How to do the pre_transform random_resize_and_interpolation?
-    "label": [FloatDecoder(), ToTensor()],
-    "byprodut_annotations": [],  # JSON encoder to do
-}
+# # Deciding PIPEPLINE.
+# # A key-value dictionary where the key matches the one used in writing the dataset,
+# # and the value is a sequence of operations to perform on top. JIT-able
+# # transformations will be JITted for fastest experience, and such. Our example could be
+# PIPELINES = {
+#     "covariate": [
+#         NDArrayDecoder(),
+#         ToTensor(),
+#         transforms.Compose([transform_2nd, transform_final]),
+#     ],  # How to do the pre_transform random_resize_and_interpolation?
+#     "label": [FloatDecoder(), ToTensor()],
+#     "byprodut_annotations": [],  # JSON encoder to do
+# }
 
-loader = Loader(
-    BETON_PATH,
-    batch_size=BATCH_SIZE,
-    num_workers=NUM_WORKERS,
-    order=ORDERING,
-    pipelines=PIPELINES,
-)
+# loader = Loader(
+#     BETON_PATH,
+#     batch_size=BATCH_SIZE,
+#     num_workers=NUM_WORKERS,
+#     order=ORDERING,
+#     pipelines=PIPELINES,
+# )

@@ -16,7 +16,7 @@ def build_args():
     main_parser.add_argument(
         "--ab_path",
         type=str,
-        default="/home/stud132/researchproject/NeglectedFreeLunch/imagenet_ab_v1_0/train_xml",
+        default="/home/catalantatjer/researchproject/NeglectedFreeLunch/train_xml",
         help="Path to the Annotation Byproducts folder.",
     )
     main_parser.add_argument(
@@ -50,11 +50,6 @@ def build_args():
         type=int,
         default=1000,
     )
-    main_parser.add_argument(
-        "--compile",
-        action='store_true',
-        default=False,
-    )
     return main_parser.parse_args()
 
 
@@ -81,28 +76,6 @@ if __name__ == "__main__":
     ).run()
 
     (inputs, ab_information) = next(iter(loader))
-    print('Dataloader sanity check, this should be (batch_size, (2))', ab_information[-1].shape)
-    model = resnet18().cuda()
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
-    if args.compile:
-        model = torch.compile(model, mode="reduce-overhead")
-
-    L_image = torch.nn.CrossEntropyLoss()
-    L_ab = torch.nn.SmoothL1Loss()
-    print('---Training---')
-    for epoch in range(nr_epochs):
-        total_loss = 0
-        for batch_idx, (inputs, ab_information) in enumerate(loader):
-            targets, weight, fg_point, loc_info = ab_information
-            inputs, targets = inputs.cuda(), targets.cuda()
-            optimizer.zero_grad()
-            visual_outputs, ab_outputs = model(inputs)
-            loss = L_image(visual_outputs, targets)
-            if loc_info is not None:
-                loc_info = loc_info.cuda()
-                loss += args.lambda_ * L_ab(ab_outputs, loc_info)
-
-            loss.backward()
-            optimizer.step()
-            total_loss+=loss
-        print(f"[Training] - E{epoch} - Loss {total_loss}")
+    print('Dataloader sanity check, this should be (batch_size, (2))')
+    print(f'Shapes :{ab_information[1].shape, ab_information[2].shape, ab_information[3].shape}')
+    print(f'Content :{ab_information[1], ab_information[2], ab_information[3]}')

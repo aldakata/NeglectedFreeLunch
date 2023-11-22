@@ -49,12 +49,11 @@ def get_imagenet_selected_point_info(image_path, xml_root):
     fragments = image_path.split("/")
     file_name_no_extension = fragments[-1].split('.')[0]
     image_class = file_name_no_extension.split('_')[0]
-    source_xml = os.path.join(xml_root, image_class,file_name_no_extension + '.xml')
+    source_xml = os.path.join(xml_root, image_class, f'{file_name_no_extension}.xml')
     if not os.path.isfile(source_xml):
         return None
 
     return load_points(source_xml)
-
 
 def check_in_point(loc_info, gt_points):
     if len(gt_points) != 0:
@@ -80,7 +79,6 @@ def check_in_point(loc_info, gt_points):
         )
 
     return False, None
-
 
 def compute_cls(
     original_label,
@@ -170,13 +168,14 @@ class ImageNetwithLUAB(torchvision.datasets.folder.ImageFolder):
             num_classes=self.num_classes,
             loss_weight=self.loss_weight,
         )
-
-        return sample, (
+        return (np.asarray(sample.permute(1, 2, 0),dtype=np.uint8()), 
             target,
             weight,
-            fg_point,
-            np.array([loc_info["w"], loc_info["h"]], dtype=np.float32),
-        )
+            fg_point[0],
+            fg_point[1],            
+            int(loc_info["w"]),
+            int(loc_info["h"]))
+        
 
 
 class ImageNetwithLUAB_dataloader:

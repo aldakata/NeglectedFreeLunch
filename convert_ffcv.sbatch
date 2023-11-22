@@ -4,11 +4,11 @@
 #a) Define slurm job parameters
 ####
 
-#SBATCH --job-name=TrainImagenet
+#SBATCH --job-name=ConvertToFFCV_v1
 
 #resources:
 
-#SBATCH --cpus-per-task=24
+#SBATCH --cpus-per-task=12
 # the job can use and see 4 CPUs (from max 24).
 
 #SBATCH --partition=day
@@ -17,7 +17,7 @@
 #SBATCH --mem-per-cpu=12G
 # the job will need 12GB of memory equally distributed on 4 cpus.  (251GB are available in total on one node)
 
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #the job can use and see 1 GPUs (4 GPUs are available in total on one node)
 
 #SBATCH --time=23:59:59
@@ -34,6 +34,6 @@
 #c) Execute your file.
 ####
 
-singularity exec --nv ffcv.sif python train_LUAB.py
+singularity exec --nv ffcv.sif python imagenet_dataloader_FFCV_convert.py
 
 echo DONE!
