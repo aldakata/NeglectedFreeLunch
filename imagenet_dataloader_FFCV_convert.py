@@ -23,10 +23,9 @@ import os
 from ffcv.writer import DatasetWriter
 from ffcv.fields import RGBImageField, IntField, FloatField, NDArrayField
 
-BETON_PATH = "imagenet_ab.beton"
 
-root_train = "/common/datasets/ImageNet_ILSVRC2012/"
-xml_path = "/home/stud132/researchproject/NeglectedFreeLunch/imagenet_ab_v1_0/train_xml"
+root_train = "/common/datasets/ImageNet_ILSVRC2012/train"
+xml_path = "/home/catalantatjer/researchproject/NeglectedFreeLunch/imagenet_ab_v1_0/train_xml"
 
 input_size = 224
 batch_size = 8
@@ -56,6 +55,11 @@ dataset_train = ImageNetwithLUAB(
         size=input_size, scale=(0.08, 1), interpolation="bicubic"
     ),
 )
+max_resolution = 400
+compress_probability = 0.1
+jpeg_quality = 90
+
+BETON_PATH = f"../imagenet_AB_train_{max_resolution}_{compress_probability}_{jpeg_quality}.ffcv"
 write_path = BETON_PATH
 
 print('Dataset read, setting up writter')
@@ -65,15 +69,16 @@ writer = DatasetWriter(
     {
         # Tune options to optimize dataset size, throughput at train-time
         "image": RGBImageField(write_mode='proportion',
-                               max_resolution=400,
-                               compress_probability=0.1,
-                               jpeg_quality=90),
+                               max_resolution=max_resolution,
+                               compress_probability=compress_probability,
+                               jpeg_quality=jpeg_quality),
         "label": IntField(),
         "weight": FloatField(),
         "fg_point_w": FloatField(),
         "fg_point_h": FloatField(),
         "loc_info_w": FloatField(),
-        "loc_info_h": FloatField()
+        "loc_info_h": FloatField(),
+        "estimateTime": IntField(),
     },
 )
 # sample, (target, weight, fg_point, loc_info)

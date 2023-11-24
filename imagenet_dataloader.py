@@ -21,10 +21,11 @@ import os
 def load_points(xml_file):
     tree = ET.parse(xml_file)
     root = tree.getroot()
-
+    estimateTime = -1
     points = []
     for obj in root.findall("metadata"):
         if obj.find("selected").text == "True":
+            estimateTime = int(obj.find("estimateTime").text)
             selected_point = obj.find("selectedRecord")
             points.append(
                 [
@@ -33,7 +34,7 @@ def load_points(xml_file):
                 ]
             )
 
-    return np.array(points)
+    return np.array(points), estimateTime
 
 
 def get_imagenet_selected_point_info(image_path, xml_root):
@@ -51,7 +52,7 @@ def get_imagenet_selected_point_info(image_path, xml_root):
     image_class = file_name_no_extension.split('_')[0]
     source_xml = os.path.join(xml_root, image_class, f'{file_name_no_extension}.xml')
     if not os.path.isfile(source_xml):
-        return None
+        return None, -1 # -1 is estimateTime
 
     return load_points(source_xml)
 
@@ -151,16 +152,16 @@ class ImageNetwithLUAB(torchvision.datasets.folder.ImageFolder):
         path, target = self.samples[index]
         sample = self.loader(path)
         image_path = self.imgs[index][0].strip()
-        points = get_imagenet_selected_point_info(image_path, self.xml_root)
+        points, estimateTime = get_imagenet_selected_point_info(image_path, self.xml_root)
         sample, loc_info = self.pre_transform(sample)
 
         if self.transform is not None:
             sample = self.transform(sample)
 
-        return sample, target, points, loc_info
+        return sample, target, points, loc_info, estimateTime
 
     def __getitem__(self, index):
-        sample, target, points, loc_info = self.get_point_ingredients(index)
+        sample, target, points, loc_info, estimateTime = self.get_point_ingredients(index)
         target, weight, fg_point = compute_cls(
             original_label=target,
             LUAB_points=points,
@@ -173,8 +174,9 @@ class ImageNetwithLUAB(torchvision.datasets.folder.ImageFolder):
             weight,
             fg_point[0],
             fg_point[1],            
-            int(loc_info["w"]),
-            int(loc_info["h"]))
+            float(loc_info["w"]),
+            float(loc_info["h"]), 
+            estimateTime)
         
 
 

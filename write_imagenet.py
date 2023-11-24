@@ -1,6 +1,6 @@
 from torch.utils.data import Subset
 from ffcv.writer import DatasetWriter
-from ffcv.fields import IntField, RGBImageField, FloatField, NDArrayField
+from ffcv.fields import IntField, RGBImageField
 from torchvision.datasets import CIFAR10, ImageFolder
 
 from argparse import ArgumentParser
@@ -8,10 +8,6 @@ from fastargs import Section, Param
 from fastargs.validation import And, OneOf
 from fastargs.decorators import param, section
 from fastargs import get_current_config
-
-
-from imagenet_dataloader import ImageNetwithLUAB, RRCFlipReturnParams
-import numpy as np
 
 Section('cfg', 'arguments to give the writer').params(
     dataset=Param(And(str, OneOf(['cifar', 'imagenet'])), 'Which dataset to write', default='imagenet'),
@@ -28,9 +24,9 @@ Section('cfg', 'arguments to give the writer').params(
 )
 
 @section('cfg')
+@param('dataset')
 @param('split')
-@param('image_data_dir')
-@param('xml_data_dir')
+@param('data_dir')
 @param('write_path')
 @param('max_resolution')
 @param('num_workers')
@@ -39,22 +35,16 @@ Section('cfg', 'arguments to give the writer').params(
 @param('jpeg_quality')
 @param('write_mode')
 @param('compress_probability')
-def main(split, image_data_dir, xml_data_dir, write_path, max_resolution, num_workers,
+def main(dataset, split, data_dir, write_path, max_resolution, num_workers,
          chunk_size, subset, jpeg_quality, write_mode,
          compress_probability):
+    if dataset == 'cifar':
+        my_dataset = CIFAR10(root=data_dir, train=(split == 'train'), download=True)
+    elif dataset == 'imagenet':
+        my_dataset = ImageFolder(root=data_dir)
+    else:
+        raise ValueError('Unrecognized dataset', dataset)
 
-    # my_dataset = ImageFolder(root=data_dir)
-    my_dataset = ImageNetwithLUAB(
-            root=image_data_dir,
-            xml_root=xml_data_dir,
-            num_classes=1000,
-            # transform=transforms.Compose([self.transform_2nd, self.transform_final]),
-            pre_transform=RRCFlipReturnParams(
-                size=self.input_size, scale=(0.08, 1), interpolation="bicubic"
-            ),
-            loss_weight=1,
-            input_size=224
-        )
     if subset > 0: my_dataset = Subset(my_dataset, range(subset))
     writer = DatasetWriter(write_path, {
         'image': RGBImageField(write_mode=write_mode,
@@ -62,10 +52,6 @@ def main(split, image_data_dir, xml_data_dir, write_path, max_resolution, num_wo
                                compress_probability=compress_probability,
                                jpeg_quality=jpeg_quality),
         'label': IntField(),
-        'weight':, FloatField() # Either np.array(1, dtype=np.float32) or np.array(0, dtype=np.float32)
-        'fg_point': NDArrayField(np.float16, shape=2), 
-        'loc_info': NDArrayField(np.int16, shape=2)
-
     }, num_workers=num_workers)
 
     writer.from_indexed_dataset(my_dataset, chunksize=chunk_size)

@@ -37,6 +37,6 @@
 #c) Execute your file.
 ####
 
-singularity exec ffcv.sif python -m pip install wget   timm
+singularity exec ffcv.sif python -m pip install -r requitements.txt
 
 echo DONE!
