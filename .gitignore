@@ -13,3 +13,4 @@ job*
 *.beton
 *.ffcv
 /data/
+__pycache__/
