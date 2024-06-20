@@ -11,3 +11,5 @@ ffcv_sbx/
 *.tar.gz
 job*
 *.beton
+*.ffcv
+/data/

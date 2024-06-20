@@ -1,7 +1,7 @@
 import torch
-from ResNet import resnet18
+from ResNet import resnet18, resnet50
 
-from imagenet_dataloader import ImageNetwithLUAB_dataloader
+from imagenet_dataloader import ImageNetwithLUAB_dataloader, ONLY_IMAGES, IMAGES_AND_POINT_CLICKED, IMAGES_AND_POINT_CLICKED_AND_MOUSE_RECORD
 
 import argparse
 
@@ -55,6 +55,12 @@ def build_args():
         action='store_true',
         default=False,
     )
+    main_parser.add_argument(
+        "--mode",
+        type=int,
+        default=ONLY_IMAGES,
+        help="0: only images, 1: images and point clicked, 2: images and point clicked and mouse record."
+    )
     return main_parser.parse_args()
 
 
@@ -78,11 +84,12 @@ if __name__ == "__main__":
         batch_size=batch_size,
         num_workers=num_workers,
         loss_weight=1,
+        mode = args.mode
     ).run()
 
     (inputs, ab_information) = next(iter(loader))
     print('Dataloader sanity check, this should be (batch_size, (2))', ab_information[-1].shape)
-    model = resnet18().cuda()
+    model = resnet50().cuda()
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     if args.compile:
         model = torch.compile(model, mode="reduce-overhead")
@@ -92,7 +99,7 @@ if __name__ == "__main__":
     print('---Training---')
     for epoch in range(nr_epochs):
         total_loss = 0
-        for batch_idx, (inputs, ab_information) in enumerate(loader):
+        for batch_idx, (inputs, target) in enumerate(loader):
             targets, weight, fg_point, loc_info = ab_information
             inputs, targets = inputs.cuda(), targets.cuda()
             optimizer.zero_grad()

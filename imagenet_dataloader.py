@@ -1,6 +1,4 @@
 import numpy as np
-import cv2
-import json
 import random
 
 import torch
@@ -9,32 +7,68 @@ import torchvision.transforms as transforms
 import timm
 from timm.data import create_transform
 import xml.etree.ElementTree as ET
-from matplotlib import pyplot as plt
-import matplotlib
-import sys
-
 import torchvision.transforms.functional as F
-
 import os
 
-
+ONLY_IMAGES = 0
+IMAGES_AND_POINT_CLICKED = 1
+IMAGES_AND_POINT_CLICKED_AND_MOUSE_RECORD = 2
+# MouseRecordTime
 def load_points(xml_file):
+    selected_record = -1 * np.ones((1,2))
+    selected_record_time = -1
+    selected = False
+    estimateTime = -1
+    selectedCount = 0
+    worker_id = ''
+    assignment_id = ''
+    hovered_record = -1 * np.ones((2,2))
+    mouse_record =  -1 * np.ones((2,3))
+    if not os.path.isfile(xml_file):
+        return selected_record, selected_record_time, selected, estimateTime, worker_id, assignment_id, hovered_record, mouse_record, selectedCount
+
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    estimateTime = -1
-    points = []
+    selected_record = []
+    hovered_record = []
+    mouse_record = []
     for obj in root.findall("metadata"):
+        selected = bool(obj.find("selected").text)
+        worker_id = obj.find("worker_id").text
+        assignment_id = obj.find("assignment_id").text
+
         if obj.find("selected").text == "True":
-            estimateTime = int(obj.find("estimateTime").text)
             selected_point = obj.find("selectedRecord")
-            points.append(
+            selected_record.append(
                 [
                     float(selected_point.find("x").text),
                     float(selected_point.find("y").text),
                 ]
             )
+            selected_record_time = float(selected_point.find("time").text)
+            estimateTime = int(obj.find("estimateTime").text)
+            selectedCount = int(obj.find("selectedCount").text)
 
-    return np.array(points), estimateTime
+            for hovered_point in  obj.findall("hoveredRecord"):
+                action = hovered_point.find("action")
+                point = hovered_point.find("time")
+                if (action is not None) and (point is not None):
+                    if action.text == 'enter':
+                        payload = np.array([0.,float(point.text)])
+                    if action.text == 'leave':
+                        payload = np.array([1.,float(point.text)])
+                    
+                    hovered_record.append(payload)
+
+            for mouse_point in  obj.findall("mouseTracking"):
+                time = mouse_point.find("time")
+                x = mouse_point.find("x")
+                y = mouse_point.find("y")
+                if (x is not None) and (y is not None) and (time is not None):
+                    payload = np.array([float(time.text),float(x.text), float(y.text)])
+                    mouse_record.append(payload)
+
+    return np.array(selected_record), selected_record_time, selected, estimateTime, worker_id, assignment_id, np.array(hovered_record), np.array(mouse_record), selectedCount
 
 
 def get_imagenet_selected_point_info(image_path, xml_root):
@@ -51,9 +85,7 @@ def get_imagenet_selected_point_info(image_path, xml_root):
     file_name_no_extension = fragments[-1].split('.')[0]
     image_class = file_name_no_extension.split('_')[0]
     source_xml = os.path.join(xml_root, image_class, f'{file_name_no_extension}.xml')
-    if not os.path.isfile(source_xml):
-        return None, -1 # -1 is estimateTime
-
+    
     return load_points(source_xml)
 
 def check_in_point(loc_info, gt_points):
@@ -90,12 +122,12 @@ def compute_cls(
     loss_weight=1,
 ):
     is_fg = False
-    weight = np.array(1, dtype=np.float32)
-    if LUAB_points is not None:
+    weight = 1.
+    if np.all(LUAB_points) > 0 :
         is_fg, fg_point = check_in_point(loc_info=loc_info, gt_points=LUAB_points)
 
-    if not is_fg or LUAB_points is None:
-        weight = np.array(0, dtype=np.float32)
+    if not is_fg or np.all(LUAB_points) < 0:
+        weight = 0.
         fg_point = np.array([-1, -1], dtype=np.float32)
 
     return original_label, weight, fg_point
@@ -140,44 +172,75 @@ class ImageNetwithLUAB(torchvision.datasets.folder.ImageFolder):
         pre_transform=None,
         num_classes=1000,
         loss_weight=1,
+        mode=ONLY_IMAGES,
         seed=0,
-    ):
+        time_series_info = False,
+    ):  
         super(ImageNetwithLUAB, self).__init__(root, transform=transform)
         self.xml_root = xml_root
         self.pre_transform = pre_transform
         self.num_classes = num_classes
         self.loss_weight = loss_weight
+        self.time_series_info = time_series_info
+        self.mode = mode
 
     def get_point_ingredients(self, index):
         path, target = self.samples[index]
         sample = self.loader(path)
         image_path = self.imgs[index][0].strip()
-        points, estimateTime = get_imagenet_selected_point_info(image_path, self.xml_root)
+        selected_record, selected_record_time, selected, estimateTime, worker_id, assignment_id, hovered_record, mouse_record, selectedCount = get_imagenet_selected_point_info(image_path, self.xml_root)
         sample, loc_info = self.pre_transform(sample)
 
         if self.transform is not None:
             sample = self.transform(sample)
 
-        return sample, target, points, loc_info, estimateTime
+        return sample, target, selected_record, loc_info, selected_record_time, selected, estimateTime, worker_id, assignment_id, hovered_record, mouse_record, selectedCount
 
     def __getitem__(self, index):
-        sample, target, points, loc_info, estimateTime = self.get_point_ingredients(index)
+        sample, target, selected_record, loc_info, selected_record_time, selected, estimateTime, worker_id, assignment_id, hovered_record, mouse_record, selectedCount = self.get_point_ingredients(index)
         target, weight, fg_point = compute_cls(
             original_label=target,
-            LUAB_points=points,
+            LUAB_points=selected_record,
             loc_info=loc_info,
             num_classes=self.num_classes,
             loss_weight=self.loss_weight,
         )
-        return (np.asarray(sample.permute(1, 2, 0),dtype=np.uint8()), 
-            target,
-            weight,
-            fg_point[0],
-            fg_point[1],            
-            float(loc_info["w"]),
-            float(loc_info["h"]), 
-            estimateTime)
-        
+        image = np.asarray(sample.permute(1, 2, 0),dtype=np.uint8())
+        if self.time_series_info:
+            return (image, 
+                target,
+                int(weight),
+                np.array([loc_info['w'], loc_info['h']], dtype=np.dtype('float32')),
+                # np.array(fg_point, dtype=np.dtype('float32')),
+                selected_record,
+                selected_record_time, 
+                selected, 
+                estimateTime, 
+                worker_id, 
+                assignment_id,
+                selectedCount,
+                hovered_record, 
+                mouse_record
+            )
+        elif self.mode == ONLY_IMAGES:
+            return (
+                image, 
+                target
+                )
+        elif self.mode == IMAGES_AND_POINT_CLICKED:
+            return (
+                image,
+                target,
+                selected_record
+            )
+        elif self.mode == IMAGES_AND_POINT_CLICKED_AND_MOUSE_RECORD:
+            return (
+                image,
+                target,
+                selected_record,
+                mouse_record
+            
+            )
 
 
 class ImageNetwithLUAB_dataloader:
@@ -190,6 +253,7 @@ class ImageNetwithLUAB_dataloader:
         num_workers,
         num_classes,
         loss_weight,
+        mode,
     ):
         self.root_train = root_train
         self.xml_path = xml_path
@@ -198,6 +262,7 @@ class ImageNetwithLUAB_dataloader:
         self.num_workers = num_workers
         self.input_size = input_size
         self.batch_size = batch_size
+        self.mode = mode
 
         _, self.transform_2nd, self.transform_final = create_transform(
             input_size=self.input_size,
@@ -219,12 +284,13 @@ class ImageNetwithLUAB_dataloader:
                 size=self.input_size, scale=(0.08, 1), interpolation="bicubic"
             ),
             loss_weight=self.loss_weight,
+            mode = self.mode
         )
         train_loader = torch.utils.data.DataLoader(
             dataset_train,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            pin_memory=True,
-            drop_last=True,
+            pin_memory=False,
+            drop_last=False,
         )
         return train_loader
