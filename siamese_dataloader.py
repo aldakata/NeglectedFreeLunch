@@ -9,9 +9,9 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 
 REGULAR_TS = np.array([   
-        0.,  100.,  200.,  300.,  400.,  500.,  600.,  700.,  800., 900., 
-        1000., 1100., 1200., 1300., 1400., 1500., 1600., 1700.,1800., 1900., 
-        2000., 2100., 2200., 2300., 2400., 2500., 2600.,2700., 2800., 2900., 
+        0,  100,  200,  300,  400,  500,  600,  700,  800, 900, 
+        1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700,1800, 1900, 
+        2000, 2100, 2200, 2300, 2400, 2500, 2600,2700, 2800, 2900, 
         # 3000., 3100., 3200., 3300., 3400., 3500.,3600., 3700., 3800., 3900.
         ])
 
@@ -21,35 +21,45 @@ def regularize_mouse_record(mouse_record):
         mouse_record[:,0] = mouse_record[:,0] - t0
         tf = mouse_record[-1,0]
         idxf = min(int(tf//100) + 1, len(REGULAR_TS)-1)
-        if idxf < 2:
-                return default_mouse_record
-        bspl = make_interp_spline(mouse_record[:,0], mouse_record[:, 1:].T, k=3,axis=1)
-        default_mouse_record[:idxf, 1:] = bspl(REGULAR_TS[:idxf]).T
-        return default_mouse_record
+        # if idxf < 2:
+        #     return default_mouse_record
+        try:
+            bspl = make_interp_spline(mouse_record[:,0], mouse_record[:, 1:].T, k=3,axis=1)
+            default_mouse_record[:idxf, 1:] = bspl(REGULAR_TS[:idxf]).T
+            return default_mouse_record
+
+        except Exception as e: 
+            # print(f"Error: {e}")#, mouse_record: ts : {mouse_record[:,0]-t0}, x-y: {mouse_record[:,1:]}")
+            # continue
+            return default_mouse_record
+    # Maybe I should return the x-y information because the timestamp is regular now, and it is explicit?
+        
 
 
 def load_points_interpolated(xml_file):
-    selected_record = -1 * np.ones((1,2))
-    estimateTime = -1
-    mouse_record =  -1 * np.ones((2,3))
+    selected_record_default = -1 * np.ones((1,2))
+    estimateTime_default = -1
+    mouse_record_default = np.array([REGULAR_TS, np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
 
     
     if not os.path.isfile(xml_file):
-        return selected_record, estimateTime, mouse_record
+        return selected_record_default, estimateTime_default, mouse_record_default
 
     tree = ET.parse(xml_file)
     root = tree.getroot()
     selected_record = []
     mouse_record = []
+    estimateTime = estimateTime_default
     for obj in root.findall("metadata"):
         if obj.find("selected").text == "True":
             selected_point = obj.find("selectedRecord")
-            selected_record.append(
-                [
-                    float(selected_point.find("x").text),
-                    float(selected_point.find("y").text),
-                ]
-            )
+            if len(selected_record) == 0:
+                selected_record.append(
+                    [
+                        float(selected_point.find("x").text),
+                        float(selected_point.find("y").text),
+                    ]
+                )
             estimateTime = float(obj.find("estimateTime").text)
 
             for mouse_point in  obj.findall("mouseTracking"):
@@ -62,11 +72,15 @@ def load_points_interpolated(xml_file):
 
 
     if len(selected_record) == 0:
-        selected_record = -1 * np.ones((1,2))
-    if len(mouse_record) != 0:
+        selected_record = selected_record_default
+
+    if len(mouse_record) > 3:
         mouse_record = regularize_mouse_record(np.array(mouse_record))
+    else:
+        mouse_record = mouse_record_default
+
     if estimateTime == 0:
-        estimateTime = -1
+        estimateTime = estimateTime_default
 
     return np.array(selected_record), estimateTime, mouse_record
 
@@ -138,31 +152,33 @@ class Siamese_dataset_folder(DatasetFolder):
     def __init__(
         self,
         root,
+        losses, # The targets of the siamese network
         is_valid_file=is_turd,
         loader=load_points_interpolated,
         transform=None,
         seed=0,
     ):
         super(Siamese_dataset_folder, self).__init__(root, loader=loader, transform=transform, is_valid_file=is_valid_file)
-        self._subset = logical_not(load("/mnt/qb/work/oh/owl156/NeglectedFreeLunch/data/missing_file_names_mask.npy"))
-        # self.losses = torch.tensor(load(loss_path)[self._subset], dtype=torch.float32)
+        self.losses = losses
         self.loader = loader
 
     def __getitem__(self, index):
         sample, target = super().__getitem__(index)
-        selected_record, estimateTime,mouse_record = sample
-        estimateTime = torch.tensor([estimateTime])#, dtype=torch.float32)
-        # target = torch.tensor([self.losses[index]])
+        selected_record, estimateTime, mouse_record = sample
+        # estimateTime = torch.tensor([estimateTime])#, dtype=torch.float32)
+        # target = torch.tensor([target])
+        target = self.losses[index]
         # print(f"__get_item__ index: {index}", hovered_record, mouse_record)
+        # As per https://github.com/pytorch/pytorch/issues/123439 we should return numpy arrays.
 
         return (
             selected_record,
             estimateTime, 
             mouse_record,
             target,
-            )
+        )
 
-class Siamese_dataset(Dataset):
+class Siamese_dataset_et(Dataset):
     def __init__(
         self,
         loss_path,
@@ -196,16 +212,79 @@ class Siamese_dataset(Dataset):
         return len(self.losses)//2
 
 
-class Siamese_dataloader:
+
+class Siamese_dataset(Dataset):
+    def __init__(
+        self,
+        losses,
+        mouse_records,
+        seed=0,
+    ):
+        super(Siamese_dataset, self).__init__()
+        self.losses = torch.from_numpy(losses)
+        self.mouse_records = torch.from_numpy(mouse_records)
+        self.indices = list(range(len(self.losses)))
+        generator = np.random.default_rng(seed=seed)
+        generator.shuffle(self.indices)
+
+        self.offset = len(self.losses)//2
+
+    def __getitem__(self, index):
+        idx_0 = self.indices[index]
+        if index >= self.offset:
+            idx_1 = self.indices[index - self.offset]
+        else:
+            idx_1 = self.indices[index + self.offset]
+        mr_0 = self.mouse_records[idx_0]
+        target_0 = self.losses[idx_0]
+        mr_1 = self.mouse_records[idx_1]
+        target_1 = self.losses[idx_1]
+        target = 1 if target_0 < target_1 else 0
+        return (
+            mr_0,
+            mr_1,
+            target
+        )
+
+    def __len__(self) -> int:
+        assert len(self.losses) == len(self.mouse_records)
+        return len(self.losses)
+
+
+class Mouse_records_dataloader:
     def __init__(
         self,
         dataset,
         batch_size,
         num_workers,
+        shuffle = False
     ):
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.dataset = dataset
+        self.shuffle = shuffle
+        
+    def _collate_fn(self, batch):
+        """
+            As per: https://github.com/pytorch/pytorch/issues/123439
+            should be np arrays
+        """
+        batch_size = len(batch)
+        selected_record = np.zeros((batch_size,1,2))
+        estimateTime =  np.zeros((batch_size,1))
+        mouse_record =  np.zeros((batch_size,30,3))
+        labels = np.zeros((batch_size,1))
+        for i,x in enumerate(batch):
+            selected_record[i] = x[0]
+            estimateTime[i] = x[1]
+            mouse_record[i] = x[2]
+            labels[i] = x[3]
+        return (
+            selected_record,
+            estimateTime,
+            mouse_record,
+            labels,
+        )
 
     def run(self):
         train_loader = DataLoader(
@@ -214,5 +293,52 @@ class Siamese_dataloader:
             num_workers=self.num_workers,
             pin_memory=True,
             drop_last=False,
+            collate_fn=self._collate_fn,
+            shuffle=self.shuffle
+        )
+        return train_loader
+
+class Siamese_dataloader:
+    def __init__(
+        self,
+        dataset,
+        batch_size,
+        num_workers,
+        shuffle = False
+    ):
+        self.num_workers = num_workers
+        self.batch_size = batch_size
+        self.dataset = dataset
+        self.shuffle = shuffle
+        
+    def _collate_fn(self, batch):
+        """
+            As per: https://github.com/pytorch/pytorch/issues/123439
+            should be np arrays
+        """
+        batch_size = len(batch)
+        mouse_record_1 =  torch.zeros((batch_size,90), dtype=torch.float32)
+        mouse_record_0 =  torch.zeros((batch_size,90), dtype=torch.float32)
+        labels = torch.zeros((batch_size,1))
+        for i,x in enumerate(batch):
+            mouse_record_0[i] = x[0].reshape(-1)
+            mouse_record_1[i] = x[1].reshape(-1)
+            labels[i] = x[2]
+
+        return (
+            mouse_record_0,
+            mouse_record_1,
+            labels,
+        )
+
+    def run(self):
+        train_loader = DataLoader(
+            self.dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=False,
+            collate_fn=self._collate_fn,
+            shuffle=self.shuffle
         )
         return train_loader
