@@ -16,7 +16,7 @@ REGULAR_TS = np.array([
         ])
 
 def regularize_mouse_record(mouse_record):
-        default_mouse_record = np.array([REGULAR_TS, np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
+        default_mouse_record = np.array([np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
         t0 = mouse_record[0,0]
         mouse_record[:,0] = mouse_record[:,0] - t0
         tf = mouse_record[-1,0]
@@ -25,7 +25,7 @@ def regularize_mouse_record(mouse_record):
         #     return default_mouse_record
         try:
             bspl = make_interp_spline(mouse_record[:,0], mouse_record[:, 1:].T, k=3,axis=1)
-            default_mouse_record[:idxf, 1:] = bspl(REGULAR_TS[:idxf]).T
+            default_mouse_record[:idxf] = bspl(REGULAR_TS[:idxf]).T
             return default_mouse_record
 
         except Exception as e: 
@@ -39,7 +39,7 @@ def regularize_mouse_record(mouse_record):
 def load_points_interpolated(xml_file):
     selected_record_default = -1 * np.ones((1,2))
     estimateTime_default = -1
-    mouse_record_default = np.array([REGULAR_TS, np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
+    mouse_record_default = np.array([np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
 
     
     if not os.path.isfile(xml_file):
@@ -148,18 +148,16 @@ def is_turd(path):
     ret &= "._" not in path
     return ret
 
-class Siamese_dataset_folder(DatasetFolder):
+class Mouse_records_dataset(DatasetFolder):
     def __init__(
         self,
         root,
-        losses, # The targets of the siamese network
         is_valid_file=is_turd,
         loader=load_points_interpolated,
         transform=None,
         seed=0,
     ):
-        super(Siamese_dataset_folder, self).__init__(root, loader=loader, transform=transform, is_valid_file=is_valid_file)
-        self.losses = losses
+        super(Mouse_records_dataset, self).__init__(root, loader=loader, transform=transform, is_valid_file=is_valid_file)
         self.loader = loader
 
     def __getitem__(self, index):
@@ -167,7 +165,7 @@ class Siamese_dataset_folder(DatasetFolder):
         selected_record, estimateTime, mouse_record = sample
         # estimateTime = torch.tensor([estimateTime])#, dtype=torch.float32)
         # target = torch.tensor([target])
-        target = self.losses[index]
+        # target = self.losses[index]
         # print(f"__get_item__ index: {index}", hovered_record, mouse_record)
         # As per https://github.com/pytorch/pytorch/issues/123439 we should return numpy arrays.
 
@@ -272,7 +270,7 @@ class Mouse_records_dataloader:
         batch_size = len(batch)
         selected_record = np.zeros((batch_size,1,2))
         estimateTime =  np.zeros((batch_size,1))
-        mouse_record =  np.zeros((batch_size,30,3))
+        mouse_record =  np.zeros((batch_size,30,2))
         labels = np.zeros((batch_size,1))
         for i,x in enumerate(batch):
             selected_record[i] = x[0]
@@ -317,8 +315,8 @@ class Siamese_dataloader:
             should be np arrays
         """
         batch_size = len(batch)
-        mouse_record_1 =  torch.zeros((batch_size,90), dtype=torch.float32)
-        mouse_record_0 =  torch.zeros((batch_size,90), dtype=torch.float32)
+        mouse_record_1 =  torch.zeros((batch_size,60), dtype=torch.float32)
+        mouse_record_0 =  torch.zeros((batch_size,60), dtype=torch.float32)
         labels = torch.zeros((batch_size,1))
         for i,x in enumerate(batch):
             mouse_record_0[i] = x[0].reshape(-1)

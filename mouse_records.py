@@ -1,15 +1,15 @@
 import torch
-from siamese_dataloader import Siamese_dataset_folder, Siamese_dataloader
+from siamese_dataloader import Mouse_records_dataset, Mouse_records_dataloader
 from tqdm import tqdm
 import numpy as np
 
 if __name__ == "__main__":
-    xml_path = "/scratch_local/owl156-429256/train_xml/"
-    dataset = Siamese_dataset_folder(
+    xml_path = "/scratch_local/owl156-438025/train_xml/"
+    dataset = Mouse_records_dataset(
         root=xml_path,
     )
     print('Loader loaded')
-    loader = Siamese_dataloader(
+    loader = Mouse_records_dataloader(
         dataset=dataset,
         batch_size=4096,
         num_workers=8,
