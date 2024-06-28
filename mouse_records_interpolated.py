@@ -1,10 +1,10 @@
-import torch
-from siamese_dataloader import Mouse_records_dataset, Mouse_records_dataloader
+from mouse_record_dataloader import Mouse_records_dataset, Mouse_records_dataloader
 from tqdm import tqdm
 import numpy as np
-
+import os
 if __name__ == "__main__":
-    xml_path = "/scratch_local/owl156-438025/train_xml/"
+    root = os.getcwd().replace('/NeglectedFreeLunch', '')
+    xml_path = f"{root}/train_xml/"
     dataset = Mouse_records_dataset(
         root=xml_path,
     )
