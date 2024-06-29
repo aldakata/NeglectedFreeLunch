@@ -5,8 +5,6 @@ imagenet1000_clsidx_to_labels.txt
 *xml
 ffcv_sbx/
 *.sif
-*.txt
-*.sh
 *.def
 *.tar.gz
 job*
