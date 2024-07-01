@@ -1,5 +1,6 @@
 conda create --yes --prefix ../torch python=3.9
 conda activate ../torch
-conda install --yes pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-conda install --yes matplotlib
-conda install --yes scipy
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install scipy
+pip install -U ipykernel
+pip instasll matplotlib
