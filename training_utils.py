@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 
+
 def train_one_epoch(net, dataloader, optimizer, criterion, device):
     predictions = []
     targets = []
@@ -13,7 +14,7 @@ def train_one_epoch(net, dataloader, optimizer, criterion, device):
         optimizer.step()
         predictions.append(logits.detach().cpu().numpy()>0.5)
         targets.append(target.detach().cpu().numpy())
-    
+
     predictions = np.concatenate(predictions)
     targets = np.concatenate(targets)
     accuracy = predictions == targets

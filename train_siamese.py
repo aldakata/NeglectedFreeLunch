@@ -8,7 +8,7 @@ from training_utils import train_one_epoch, validate, collate_fn
 from time import gmtime, strftime
 import argparse
 import os
-
+import time
 
 def build_args():
     main_parser = argparse.ArgumentParser()
@@ -56,8 +56,8 @@ if __name__ == "__main__":
     print(
         f"Loading data from {data_path}, training for {args.epochs} epochs.\nLogging at {args.log}"
     )
-    log_file = open(f"{args.log}/log.txt", "w")
     os.mkdir(f"{args.log}")
+    log_file = open(f"{args.log}/log.txt", "w")
     with open(f"{args.log}/args.txt", "w") as f:
         f.write(str(args))
     data = torch.from_numpy(data)
@@ -75,13 +75,13 @@ if __name__ == "__main__":
     dataset_val = Subset(dataset, val_indices)
     dataset_test = Subset(dataset, test_indices)
     dataloader_train = DataLoader(
-        dataset_train, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+        dataset_train, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
     )
     dataloader_val = DataLoader(
-        dataset_val, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+        dataset_val, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
     )
     dataloader_test = DataLoader(
-        dataset_test, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+        dataset_test, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
     )
     print(
         f"Size of the datasets: train: {len(dataset_train)}, val: {len(dataset_val)}, test: {len(dataset_test)}"
@@ -105,21 +105,24 @@ if __name__ == "__main__":
     log_file.write(
         f"Number of params: {sum(p.numel() for p in net.parameters() if p.requires_grad)}\n"
     )
-    initial_train_accuracy = validate(net, dataloader_train, device)
-    print(f"Initial train accuracy: {initial_train_accuracy}")
-    log_file.write(f"Initial train accuracy: {initial_train_accuracy}\n")
+    # initial_train_accuracy = validate(net, dataloader_train, device)
+    # print(f"Initial train accuracy: {initial_train_accuracy}")
+    # log_file.write(f"Initial train accuracy: {initial_train_accuracy}\n")
     for epoch in range(args.epochs):
+        start = time.time()
         loss, train_accuracy = train_one_epoch(
             net, dataloader_train, optimizer, criterion, device
         )
+        end = time.time()
         val_accuracy = validate(net, dataloader_val, device)
         train_accuracies.append(train_accuracy)
         val_accuracies.append(val_accuracy)
         losses.append(loss)
         if epoch % 50 == 0:
             print(
-                f"Epoch {epoch}, loss: {loss}, train accuracy: {train_accuracy}, val accuracy: {val_accuracy}"
+                f"Epoch {epoch},  Time: {end - start} loss: {loss}, train accuracy: {train_accuracy}, val accuracy: {val_accuracy}"
             )
+            
             log_file.write(
                 f"Epoch {epoch}, loss: {loss}, train accuracy: {train_accuracy}, val accuracy: {val_accuracy}\n"
             )
