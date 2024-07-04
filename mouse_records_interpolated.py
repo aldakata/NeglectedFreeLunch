@@ -5,6 +5,7 @@ import os
 if __name__ == "__main__":
     root = os.getcwd().replace('/NeglectedFreeLunch', '')
     xml_path = f"{root}/train_xml/"
+    print(f"Loading data from {xml_path}...")
     dataset = Mouse_records_dataset(
         root=xml_path,
     )

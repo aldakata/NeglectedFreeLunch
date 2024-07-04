@@ -8,7 +8,6 @@ class Mouse_records_dataset(DatasetFolder):
         self,
         root,
         is_valid_file=is_turd,
-        seed=0,
     ):
         super(Mouse_records_dataset, self).__init__(root, loader=load_points_interpolated, is_valid_file=is_valid_file)
 

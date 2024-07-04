@@ -93,7 +93,6 @@ def load_points(xml_file):
     selected_record_default = -1 * np.ones((1,2))
     estimateTime_default = -1
     mouse_record_default = np.array([np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1, np.ones_like(REGULAR_TS)*-1]).T
-    # print(f"xml_file: {xml_file}")
     if not os.path.isfile(xml_file):
         return selected_record_default, estimateTime_default, mouse_record_default
 
@@ -130,8 +129,6 @@ def load_points(xml_file):
         estimateTime = estimateTime_default
 
     return np.array(selected_record), estimateTime, np.array(mouse_record)
-
-
 
 def is_turd(path):
     ret = True

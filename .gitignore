@@ -12,3 +12,4 @@ job*
 *.ffcv
 /data/
 __pycache__/
+checkpoints/
