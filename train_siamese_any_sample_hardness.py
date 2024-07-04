@@ -11,15 +11,21 @@ import os
 import time
 import shutil
 
+
 def build_args():
     main_parser = argparse.ArgumentParser()
     main_parser.add_argument(
-        "--data_path",
+        "--ab_path",
+        type=str,
+        help="Path to the mouse_records, worker_id and all the ABs combined.",
+        default="data/ab_data.npy",
+    )
+    main_parser.add_argument(
+        "--sh_path",
         type=str,
         help="Path to the data file.",
         default="data/siamese_data_cleaned.npy",
     )
-
     main_parser.add_argument(
         "--epochs",
         type=int,
@@ -61,6 +67,15 @@ if __name__ == "__main__":
     log_file = open(f"{args.log}/log.txt", "w")
     with open(f"{args.log}/args.txt", "w") as f:
         f.write(str(args))
+        
+    
+    
+    
+    
+    
+    
+    
+    
     data = torch.from_numpy(data)
     dataset = TensorDataset(data)
     if args.debug:
@@ -141,7 +156,3 @@ if __name__ == "__main__":
     plt.title("Accuracy")
     plt.legend()
     plt.savefig(f"{args.log}/accuracy.png")
-    log_file.close()
-
-    work = "/mnt/qb/work/oh/owl156/NeglectedFreeLunch"
-    shutil.copytree(f"{args.log}", f"{work}/{args.log}")
