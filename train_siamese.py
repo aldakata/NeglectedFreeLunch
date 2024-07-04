@@ -123,11 +123,17 @@ if __name__ == "__main__":
             log_file.write(
                 f"Epoch {epoch}, loss: {loss}, train accuracy: {train_accuracy}, val accuracy: {val_accuracy}\n"
             )
+    test_accuracy = validate(net, dataloader_test, device)
+    print(f"Test accuracy: {test_accuracy}")
+    log_file.write(f"Test accuracy: {test_accuracy}\n")
+    plt.figure(0)
     plt.plot(losses, label="loss")
     plt.title("Loss")
     plt.savefig(f"{args.log}/loss.png")
+    plt.figure(1)
     plt.plot(val_accuracies, label="val accuracy")
     plt.plot(train_accuracies, label="train accuracy")
+    plt.plot(np.ones_like(val_accuracies)*test_accuracy, label="test accuracy")
     plt.title("Accuracy")
     plt.legend()
     plt.savefig(f"{args.log}/accuracy.png")
