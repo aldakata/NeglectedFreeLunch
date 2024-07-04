@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data import TensorDataset
 import numpy as np
 
 def train_one_epoch(net, dataloader, optimizer, criterion, device):
@@ -119,3 +120,66 @@ def create_siamese_data(sample_hardness_path, margin):
     data[:, 125]=worker_ids_int[idx0] # worker id
     data[:, 126]=worker_ids_int[idx1] # worker id
     return data
+
+
+def create_siamese_dataset(sample_hardness_path: str, margin: float) -> TensorDataset:
+    subset = np.logical_not(np.load("data/missing_file_names_mask.npy"))
+    sample_hardness = np.load(sample_hardness_path)[subset]
+    mouse_records  = np.load('data/mouse_record_interpolated.npy')
+    assert len(sample_hardness) == len(mouse_records)
+    
+    estimate_times=np.load('data/sample_estimate_times.npy')[subset]
+    worker_ids=np.load('data/sample_worker_ids.npy')[subset]
+    clean_subset = estimate_times < 3000
+    clean_subset = np.logical_and(clean_subset, estimate_times > 0)
+
+    sample_hardness = sample_hardness[clean_subset]
+    mouse_records = mouse_records[clean_subset]
+    estimate_times = estimate_times[clean_subset]
+    worker_ids = worker_ids[clean_subset]
+    
+    not_zero = []
+    for i, el in enumerate(mouse_records):
+        if not np.allclose(el, np.zeros_like(el)):
+            not_zero.append(i)
+    mouse_records = mouse_records[not_zero]
+    sample_hardness = sample_hardness[not_zero]
+    estimate_times  = estimate_times[not_zero]
+    worker_ids  = worker_ids[not_zero]
+    worker_ids_int = np.zeros_like(worker_ids, dtype = np.float32)
+    for i, w in enumerate(np.unique(worker_ids)):
+        worker_ids_int[np.where(worker_ids == w)] = i
+        
+    NUM_SAMPLES = 2000000
+    idx0 = np.random.choice(len(sample_hardness), NUM_SAMPLES)
+    idx1 = np.random.choice(len(sample_hardness), NUM_SAMPLES)
+    invalid = idx0 == idx1
+    idx0 = idx0[~invalid]
+    idx1 = idx1[~invalid]
+    lower0 = sample_hardness[idx0] < sample_hardness[idx1]
+    over_margin_0 = sample_hardness[idx0] + margin < sample_hardness[idx1]
+    discard0 = np.logical_and(lower0, ~over_margin_0)
+    lower1 = sample_hardness[idx1] < sample_hardness[idx0]
+    over_margin_1 = sample_hardness[idx1] + margin < sample_hardness[idx0]
+    discard1 = np.logical_and(lower1, ~over_margin_1)
+    to_discard = np.logical_or(discard0, discard1)
+
+    idx0 = idx0[~to_discard]
+    idx1 = idx1[~to_discard]
+    target = (sample_hardness[idx0]<sample_hardness[idx1])*1.
+
+    mr0 = torch.zeros((len(idx0), mouse_records.shape[1]*mouse_records.shape[2]))
+    mr0[:, :30]=torch.from_numpy(mouse_records[idx0][:, :, 0]) # x-axis
+    mr0[:, 30:60]=torch.from_numpy(mouse_records[idx0][:, :, 1]) # y-axis
+    mr1 = torch.zeros((len(idx0), mouse_records.shape[1]*mouse_records.shape[2]))
+    mr1[:, :30]=torch.from_numpy(mouse_records[idx1][:, :, 0]) # x-axis
+    mr1[:, 30:60]=torch.from_numpy(mouse_records[idx1][:, :, 1]) # y-axis
+    target = torch.from_numpy(target)
+    sh0= torch.from_numpy(sample_hardness[idx0])
+    sh1= torch.from_numpy(sample_hardness[idx1])
+    t0= torch.from_numpy(estimate_times[idx0])
+    t1= torch.from_numpy(estimate_times[idx1])
+    w0= torch.from_numpy(worker_ids_int[idx0])
+    w1= torch.from_numpy(worker_ids_int[idx1])
+
+    return TensorDataset(mr0, mr1, target, sh0, sh1, t0, t1, w0, w1)
