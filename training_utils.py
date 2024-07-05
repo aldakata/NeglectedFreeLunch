@@ -149,7 +149,7 @@ def create_siamese_dataset(sample_hardness_path: str, margin: float) -> TensorDa
     worker_ids_int = np.zeros_like(worker_ids, dtype = np.float32)
     for i, w in enumerate(np.unique(worker_ids)):
         worker_ids_int[np.where(worker_ids == w)] = i
-        
+
     NUM_SAMPLES = 2000000
     idx0 = np.random.choice(len(sample_hardness), NUM_SAMPLES)
     idx1 = np.random.choice(len(sample_hardness), NUM_SAMPLES)
@@ -166,20 +166,17 @@ def create_siamese_dataset(sample_hardness_path: str, margin: float) -> TensorDa
 
     idx0 = idx0[~to_discard]
     idx1 = idx1[~to_discard]
-    target = (sample_hardness[idx0]<sample_hardness[idx1])*1.
+    target = np.asarray((sample_hardness[idx0]<sample_hardness[idx1]), dtype=np.float32)
 
-    mr0 = torch.zeros((len(idx0), mouse_records.shape[1]*mouse_records.shape[2]))
-    mr0[:, :30]=torch.from_numpy(mouse_records[idx0][:, :, 0]) # x-axis
-    mr0[:, 30:60]=torch.from_numpy(mouse_records[idx0][:, :, 1]) # y-axis
-    mr1 = torch.zeros((len(idx0), mouse_records.shape[1]*mouse_records.shape[2]))
-    mr1[:, :30]=torch.from_numpy(mouse_records[idx1][:, :, 0]) # x-axis
-    mr1[:, 30:60]=torch.from_numpy(mouse_records[idx1][:, :, 1]) # y-axis
-    target = torch.from_numpy(target)
-    sh0= torch.from_numpy(sample_hardness[idx0])
-    sh1= torch.from_numpy(sample_hardness[idx1])
-    t0= torch.from_numpy(estimate_times[idx0])
-    t1= torch.from_numpy(estimate_times[idx1])
-    w0= torch.from_numpy(worker_ids_int[idx0])
-    w1= torch.from_numpy(worker_ids_int[idx1])
+    mr0 = torch.from_numpy(mouse_records[idx0]).permute(0,2,1)
+    mr1 = torch.from_numpy(mouse_records[idx1]).permute(0,2,1)
+    target = torch.from_numpy(target)[:, None]
+    sh0 = torch.from_numpy(sample_hardness[idx0])[:, None]
+    sh1 = torch.from_numpy(sample_hardness[idx1])[:, None]
+    t0 = torch.from_numpy(estimate_times[idx0])[:, None]
+    t1 = torch.from_numpy(estimate_times[idx1])[:, None]
+    w0 = torch.from_numpy(worker_ids_int[idx0])[:, None]
+    w1 = torch.from_numpy(worker_ids_int[idx1])[:, None]
 
     return TensorDataset(mr0, mr1, target, sh0, sh1, t0, t1, w0, w1)
+

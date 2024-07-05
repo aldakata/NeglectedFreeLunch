@@ -1,43 +1,39 @@
 import torch
-from torch.utils.data import TensorDataset, DataLoader, Subset
+from torch.utils.data import DataLoader, Subset
 import numpy as np
 import matplotlib.pyplot as plt
 from siamese_network import SiameseNetworkConv
 from torch import nn
-from training_utils import train_one_epoch, validate, collate_fn
+from training_utils import train_one_epoch, validate, collate_fn, create_siamese_dataset
 from time import gmtime, strftime
 import argparse
 import os
 import time
 import shutil
 
-
 def build_args():
     main_parser = argparse.ArgumentParser()
     main_parser.add_argument(
-        "--ab_path",
-        type=str,
-        help="Path to the mouse_records, worker_id and all the ABs combined.",
-        default="data/ab_data.npy",
-    )
-    main_parser.add_argument(
-        "--sh_path",
+        "--data_path",
         type=str,
         help="Path to the data file.",
-        default="data/siamese_data_cleaned.npy",
+        default="data/resnet50_losses_0.npy",
     )
     main_parser.add_argument(
         "--epochs",
         type=int,
-        default=1000,
+        default=3,
     )
-
+    main_parser.add_argument(
+        "--margin",
+        type=float,
+        default=1.,
+    )
     main_parser.add_argument(
         "--batch_size",
         type=int,
         default=4096,
     )
-
     main_parser.add_argument(
         "--lr",
         type=float,
@@ -58,31 +54,19 @@ def build_args():
 
 if __name__ == "__main__":
     args = build_args()
-    data_path = args.data_path
-    data = np.load(data_path)
     print(
-        f"Loading data from {data_path}, training for {args.epochs} epochs.\nLogging at {args.log}"
+        f"Loading data from {args.data_path}, training for {args.epochs} epochs.\nLogging at {args.log}"
     )
     os.mkdir(f"{args.log}")
     log_file = open(f"{args.log}/log.txt", "w")
     with open(f"{args.log}/args.txt", "w") as f:
         f.write(str(args))
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    data = torch.from_numpy(data)
-    dataset = TensorDataset(data)
+    dataset = create_siamese_dataset(args.data_path, args.margin)
     if args.debug:
         SUBSELECT_TO_DEBUG = 100
     else:
-        SUBSELECT_TO_DEBUG = len(data)
-    indices = np.arange(len(data))[:SUBSELECT_TO_DEBUG]
+        SUBSELECT_TO_DEBUG = len(dataset)
+    indices = np.arange(len(dataset))[:SUBSELECT_TO_DEBUG]
     np.random.shuffle(indices)
     train_indices = indices[: int(0.8 * len(indices))]
     val_indices = indices[int(0.8 * len(indices)) : int(0.85 * len(indices))]
@@ -91,13 +75,13 @@ if __name__ == "__main__":
     dataset_val = Subset(dataset, val_indices)
     dataset_test = Subset(dataset, test_indices)
     dataloader_train = DataLoader(
-        dataset_train, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
+        dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=8
     )
     dataloader_val = DataLoader(
-        dataset_val, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
+        dataset_val, batch_size=args.batch_size, shuffle=True, num_workers=8
     )
     dataloader_test = DataLoader(
-        dataset_test, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8
+        dataset_test, batch_size=args.batch_size, shuffle=True, num_workers=8
     )
     print(
         f"Size of the datasets: train: {len(dataset_train)}, val: {len(dataset_val)}, test: {len(dataset_test)}"
@@ -156,3 +140,6 @@ if __name__ == "__main__":
     plt.title("Accuracy")
     plt.legend()
     plt.savefig(f"{args.log}/accuracy.png")
+
+    work = "/mnt/qb/work/oh/owl156/NeglectedFreeLunch"
+    shutil.copytree(f"{args.log}", f"{work}/{args.log}")

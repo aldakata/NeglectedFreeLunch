@@ -3,8 +3,9 @@ from ffcv.writer import DatasetWriter
 import numpy as np
 import argparse
 from ffcv.writer import DatasetWriter
-from ffcv.fields import RGBImageField, IntField, FloatField, TorchTensorField
+from ffcv.fields import IntField, FloatField, TorchTensorField
 import torch
+import os
 
 def build_args():
     main_parser = argparse.ArgumentParser()
@@ -12,7 +13,7 @@ def build_args():
         "--sh_path",
         type=str,
         help="Path to the data file.",
-        default="/scratch_local/owl156-462029/NeglectedFreeLunch/data/resnet50_losses_0.npy",
+        default="data/resnet50_losses_0.npy",
     )
     main_parser.add_argument(
         "--margin",
