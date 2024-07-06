@@ -37,7 +37,7 @@ def build_args():
     main_parser.add_argument(
         "--lr",
         type=float,
-        default=1e-4,
+        default=1e-3,
     )
     main_parser.add_argument(
         "--debug",
@@ -105,9 +105,9 @@ if __name__ == "__main__":
     log_file.write(
         f"Number of params: {sum(p.numel() for p in net.parameters() if p.requires_grad)}\n"
     )
-    # initial_train_accuracy = validate(net, dataloader_train, device)
-    # print(f"Initial train accuracy: {initial_train_accuracy}")
-    # log_file.write(f"Initial train accuracy: {initial_train_accuracy}\n")
+    initial_train_accuracy = validate(net, dataloader_train, device)
+    print(f"Initial train accuracy: {initial_train_accuracy}")
+    log_file.write(f"Initial train accuracy: {initial_train_accuracy}\n")
     for epoch in range(args.epochs):
         start = time.time()
         loss, train_accuracy = train_one_epoch(
