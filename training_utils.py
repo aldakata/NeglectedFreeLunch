@@ -170,6 +170,8 @@ def create_siamese_dataset(sample_hardness_path: str, margin: float) -> TensorDa
 
     mr0 = torch.from_numpy(mouse_records[idx0]).permute(0,2,1)
     mr1 = torch.from_numpy(mouse_records[idx1]).permute(0,2,1)
+    mr0 = mr0.double()
+    mr1 = mr1.double()
     target = torch.from_numpy(target)[:, None]
     sh0 = torch.from_numpy(sample_hardness[idx0])[:, None]
     sh1 = torch.from_numpy(sample_hardness[idx1])[:, None]

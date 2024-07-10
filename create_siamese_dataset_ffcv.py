@@ -25,7 +25,7 @@ def build_args():
         "--destiny_path",
         type=str,
         help="Path to the data file.",
-        default="data/test.beton",
+        default="data/siamese_losses_50_0.beton",
     )
     return main_parser.parse_args()
 
@@ -38,11 +38,11 @@ writer = DatasetWriter(write_path, {
     # Tune options to optimize dataset size, throughput at train-time
     'mr0': TorchTensorField(
         dtype=torch.float64,
-        shape=(60, 1),
+        shape=(30, 2),
     ),
     'mr1': TorchTensorField(
         dtype=torch.float64,
-        shape=(60, 1),
+        shape=(30, 2),
     ),
     'target': IntField(),
     't0': FloatField(),

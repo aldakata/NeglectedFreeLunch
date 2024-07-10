@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from siamese_network import SiameseNetworkConv
 from torch import nn
-from training_utils import train_one_epoch, validate, collate_fn
+from training_utils import train_one_epoch, validate, collate_fn, create_siamese_dataset
 from time import gmtime, strftime
 import argparse
 import os
@@ -13,7 +13,8 @@ import shutil
 from ffcv.loader import Loader, OrderOption
 from ffcv.transforms import ToTensor, ToDevice
 from ffcv.fields.decoders import IntDecoder, NDArrayDecoder, FloatDecoder
-
+from ffcv.writer import DatasetWriter
+from ffcv.fields import IntField, FloatField, TorchTensorField
 
 
 def build_args():
@@ -22,7 +23,7 @@ def build_args():
         "--data_path",
         type=str,
         help="Path to the data file.",
-        default="data/siamese_data_cleaned.npy",
+        default="data/resnet50_losses_0.npy",
     )
 
     main_parser.add_argument(
@@ -52,8 +53,19 @@ def build_args():
         type=str,
         default=f'checkpoints/{strftime("%Y-%m-%d %H:%M:%S", gmtime())}',
     )
+    
+    main_parser.add_argument(
+        "--beton",
+        type=str,
+        default=f'checkpoints/{strftime("%Y-%m-%d %H:%M:%S", gmtime())}/dataset.beton',
+    )
+    
+    main_parser.add_argument(
+        "--margin",
+        type=float,
+        default=1.
+    )
     return main_parser.parse_args()
-
 
 if __name__ == "__main__":
     args = build_args()
@@ -66,21 +78,41 @@ if __name__ == "__main__":
     log_file = open(f"{args.log}/log.txt", "w")
     with open(f"{args.log}/args.txt", "w") as f:
         f.write(str(args))
-    data = torch.from_numpy(data)
-    dataset = TensorDataset(data)
+
+    tensor_dataset = create_siamese_dataset(args.data_path, args.margin)
+    write_path = args.beton
+    # Pass a type for each data field
+    writer = DatasetWriter(write_path, {
+        # Tune options to optimize dataset size, throughput at train-time
+        'mr0': TorchTensorField(
+            dtype=torch.float64,
+            shape=(60, 1),
+        ),
+        'mr1': TorchTensorField(
+            dtype=torch.float64,
+            shape=(60, 1),
+        ),
+        'target': IntField(),
+        't0': FloatField(),
+        't1': FloatField(),
+        'w0': FloatField(),
+        'w1': FloatField(),
+    })
+
+    # Write dataset
+    writer.from_indexed_dataset(tensor_dataset)
+    print(f"Dataset written to { write_path}")
+
     if args.debug:
         SUBSELECT_TO_DEBUG = 100
     else:
         SUBSELECT_TO_DEBUG = len(data)
-    indices = np.arange(len(data))[:SUBSELECT_TO_DEBUG]
+    indices = np.arange(len(tensor_dataset))[:SUBSELECT_TO_DEBUG]
     np.random.shuffle(indices)
     train_indices = indices[: int(0.8 * len(indices))]
     val_indices = indices[int(0.8 * len(indices)) : int(0.85 * len(indices))]
     test_indices = indices[int(0.85 * len(indices)) :]
-    dataset_train = Subset(dataset, train_indices)
-    dataset_val = Subset(dataset, val_indices)
-    dataset_test = Subset(dataset, test_indices)
-    
+
     # Data decoding and augmentation
     mr_pipeline = [ NDArrayDecoder(), ToTensor(),ToDevice(0)]
     target_pipeline = [IntDecoder(), ToTensor(), ToDevice(0)]
@@ -90,11 +122,17 @@ if __name__ == "__main__":
     pipelines = {
         'mr0': mr_pipeline,
         'mr1': mr_pipeline,
-        'target': target_pipeline
+        'target': target_pipeline,
+        'sh0': float_pipeline,
+        'sh1': float_pipeline,
+        't0': float_pipeline,
+        't1': float_pipeline,
+        'w0': float_pipeline,
+        'w1': float_pipeline, 
     }
 
     # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
-    dataloader_train = Loader(args.beton, 
+    dataloader_train = Loader(write_path, 
                     batch_size=args.batch_size, 
                     num_workers=1,
                     order=OrderOption.RANDOM, 
